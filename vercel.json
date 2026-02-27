@@ -1,7 +1,8 @@
 {
-  "buildCommand": "cd front && npm install && npm run build",
-  "outputDirectory": "front/dist",
-  "installCommand": "echo skip",
+  "rootDirectory": "front",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
   "framework": "vite",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
