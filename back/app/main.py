@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from app.database import engine, SessionLocal, Base
 from app import models
-from app.routes import auth, users, events, passes, admin, committees, colleges, fests
+from app.routes import auth, users, events, passes, admin, committees, colleges, fests, entry_passes, fest_events
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,14 +20,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router,        prefix="/api/auth",        tags=["Auth"])
-app.include_router(users.router,       prefix="/api/users",       tags=["Users"])
-app.include_router(events.router,      prefix="/api/events",      tags=["Events"])
-app.include_router(passes.router,      prefix="/api/passes",      tags=["Passes"])
-app.include_router(admin.router,       prefix="/api/admin",       tags=["Admin"])
-app.include_router(committees.router,  prefix="/api/events",      tags=["Committees"])
-app.include_router(colleges.router,    prefix="/api/colleges",    tags=["Colleges"])
-app.include_router(fests.router,       prefix="/api/fests",       tags=["Fests"])
+app.include_router(auth.router,          prefix="/api/auth",        tags=["Auth"])
+app.include_router(users.router,         prefix="/api/users",       tags=["Users"])
+app.include_router(events.router,        prefix="/api/events",      tags=["Events"])
+app.include_router(passes.router,        prefix="/api/passes",      tags=["Passes"])
+app.include_router(admin.router,         prefix="/api/admin",       tags=["Admin"])
+app.include_router(committees.router,    prefix="/api/events",      tags=["Committees"])
+app.include_router(colleges.router,      prefix="/api/colleges",    tags=["Colleges"])
+app.include_router(fests.router,         prefix="/api/fests",       tags=["Fests"])
+app.include_router(entry_passes.router,  prefix="/api/fests",       tags=["FestPasses"])
+app.include_router(fest_events.router,   prefix="/api/fest-events", tags=["FestEventRegistrations"])
 
 def seed():
     db = SessionLocal()

@@ -27,6 +27,23 @@ class EventTypeEnum(str, enum.Enum):
     fest = "fest"   # belongs to a College Fest (managed by FestMember committee)
     city = "city"   # standalone City Event    (managed by a single organizer)
 
+class ApprovalModeEnum(str, enum.Enum):
+    auto   = "auto"
+    manual = "manual"
+
+class FestPassStatusEnum(str, enum.Enum):
+    approved = "approved"
+    blocked  = "blocked"
+
+class RegApprovalStatusEnum(str, enum.Enum):
+    pending  = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+class RegPaymentStatusEnum(str, enum.Enum):
+    unpaid = "unpaid"
+    paid   = "paid"
+
 class AuthProviderEnum(str, enum.Enum):
     google = "google"
     phone = "phone"
@@ -50,6 +67,7 @@ class User(Base):
     passes            = relationship("Pass", back_populates="user")
     organizer_request = relationship("OrganizerRequest", back_populates="user", uselist=False)
     fest_memberships  = relationship("FestMember", back_populates="user")
+    fest_passes       = relationship("FestPass", back_populates="user")
 
 class Interest(Base):
     __tablename__ = "interests"
@@ -95,11 +113,18 @@ class Event(Base):
     fest_id      = Column(Integer, ForeignKey("fests.id"), nullable=True)  # NULL for city events
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
 
+    # ── Fest-event registration fields (ignored when event_type='city') ──────
+    requires_registration = Column(Boolean, default=False)
+    is_paid               = Column(Boolean, default=False)
+    registration_limit    = Column(Integer, nullable=True)   # None = unlimited
+    approval_mode         = Column(Enum(ApprovalModeEnum), default=ApprovalModeEnum.auto)
+
     organizer  = relationship("User", back_populates="events")
     college    = relationship("College", back_populates="events")
     fest       = relationship("Fest", back_populates="events")
     passes     = relationship("Pass", back_populates="event")
     committees = relationship("Committee", back_populates="event")
+    registrations = relationship("EventRegistration", back_populates="event")
 
     @property
     def college_name(self):
@@ -171,9 +196,10 @@ class Fest(Base):
     status     = Column(Enum(FestStatusEnum), default=FestStatusEnum.draft)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    college = relationship("College", back_populates="fests")
-    events  = relationship("Event", back_populates="fest")
-    members = relationship("FestMember", back_populates="fest", cascade="all, delete-orphan")
+    college      = relationship("College", back_populates="fests")
+    events       = relationship("Event", back_populates="fest")
+    members      = relationship("FestMember", back_populates="fest", cascade="all, delete-orphan")
+    entry_passes = relationship("FestPass", back_populates="fest")
 
     @property
     def event_count(self):
@@ -196,6 +222,44 @@ class FestMember(Base):
 
     fest = relationship("Fest", back_populates="members")
     user = relationship("User", back_populates="fest_memberships")
+
+
+class FestPass(Base):
+    """Entry pass granting a user access to a Fest."""
+    __tablename__ = "fest_passes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "fest_id", name="uq_fest_pass_user_fest"),
+    )
+
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    fest_id    = Column(Integer, ForeignKey("fests.id"), nullable=False)
+    status     = Column(Enum(FestPassStatusEnum), default=FestPassStatusEnum.approved)
+    qr_code    = Column(String(100), unique=True, nullable=False)
+    checked_in = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user          = relationship("User", back_populates="fest_passes")
+    fest          = relationship("Fest", back_populates="entry_passes")
+    registrations = relationship("EventRegistration", back_populates="fest_pass")
+
+
+class EventRegistration(Base):
+    """A FestPass holder registering for a specific fest event."""
+    __tablename__ = "event_registrations"
+    __table_args__ = (
+        UniqueConstraint("fest_pass_id", "event_id", name="uq_event_reg_pass_event"),
+    )
+
+    id              = Column(Integer, primary_key=True, index=True)
+    fest_pass_id    = Column(Integer, ForeignKey("fest_passes.id"), nullable=False)
+    event_id        = Column(Integer, ForeignKey("events.id"), nullable=False)
+    approval_status = Column(Enum(RegApprovalStatusEnum), default=RegApprovalStatusEnum.pending)
+    payment_status  = Column(Enum(RegPaymentStatusEnum), default=RegPaymentStatusEnum.unpaid)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    fest_pass = relationship("FestPass", back_populates="registrations")
+    event     = relationship("Event", back_populates="registrations")
 
 
 class Department(Base):

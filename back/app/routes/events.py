@@ -94,3 +94,95 @@ def create_event(data: schemas.EventCreate, db: Session = Depends(get_db), curre
     db.commit()
     db.refresh(event)
     return event
+
+
+@router.patch("/{event_id}", response_model=schemas.EventOut)
+def update_event(
+    event_id: int,
+    data: schemas.EventUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_organizer),
+):
+    """
+    Partial update of an event.
+
+    Protected fields (rejected if any EventRegistrations exist):
+      - requires_registration
+      - is_paid
+      - price (decrease only — increasing or keeping same is fine)
+      - registration_limit (cannot decrease below current active registration count)
+
+    Always allowed:
+      - title, description, location, date, time, image_url, category
+      - increasing registration_limit
+      - approval_mode
+    """
+    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Ownership check: city event organizer or fest owner/core or admin
+    if current_user.role != models.RoleEnum.admin:
+        if event.event_type == models.EventTypeEnum.city:
+            if event.organizer_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Not your event")
+        else:
+            is_member = (
+                db.query(models.FestMember)
+                .filter(
+                    models.FestMember.fest_id == event.fest_id,
+                    models.FestMember.user_id == current_user.id,
+                    models.FestMember.role.in_([
+                        models.FestMemberRoleEnum.owner,
+                        models.FestMemberRoleEnum.core,
+                    ]),
+                )
+                .first()
+            )
+            if not is_member:
+                raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Count active registrations for this event
+    active_reg_count = (
+        db.query(models.EventRegistration)
+        .filter(
+            models.EventRegistration.event_id == event_id,
+            models.EventRegistration.approval_status.in_([
+                models.RegApprovalStatusEnum.approved,
+                models.RegApprovalStatusEnum.pending,
+            ]),
+        )
+        .count()
+    ) if event.event_type == models.EventTypeEnum.fest else 0
+
+    has_registrations = active_reg_count > 0
+
+    updates = data.model_dump(exclude_unset=True)
+
+    # Guard locked fields if registrations exist
+    if has_registrations:
+        locked = []
+        if "requires_registration" in updates:
+            locked.append("requires_registration")
+        if "is_paid" in updates:
+            locked.append("is_paid")
+        if "price" in updates and updates["price"] < (event.price or 0):
+            locked.append("price (cannot decrease)")
+        if "registration_limit" in updates:
+            new_limit = updates["registration_limit"]
+            if new_limit is not None and new_limit < active_reg_count:
+                locked.append(
+                    f"registration_limit (cannot set below current count of {active_reg_count})"
+                )
+        if locked:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot change locked fields while registrations exist: {', '.join(locked)}",
+            )
+
+    for field, value in updates.items():
+        setattr(event, field, value)
+
+    db.commit()
+    db.refresh(event)
+    return event
