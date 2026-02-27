@@ -16,6 +16,10 @@ ALLOWED_ORIGINS = [
     "http://localhost:4173",
     "https://front-w461.onrender.com",
     "https://eventx-front.onrender.com",
+    # Vercel deployments
+    "https://eventx.vercel.app",
+    "https://eventx-git-main-zenxroleplay.vercel.app",
+    "https://eventx-git-main-sahilkhandocuments-dot.vercel.app",
 ]
 
 app.add_middleware(
