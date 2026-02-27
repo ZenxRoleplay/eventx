@@ -20,7 +20,7 @@ services:
     staticPublishPath: front/dist
     envVars:
       - key: VITE_API_URL
-        value: https://back-mlkl.onrender.com
+        value: https://eventx-api.onrender.com
     routes:
       - type: rewrite
         source: /*
