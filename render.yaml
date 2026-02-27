@@ -14,8 +14,9 @@ services:
       mountPath: /opt/render/project/src
       sizeGB: 1
 
-  - type: static
+  - type: web
     name: eventx-front
+    env: static
     buildCommand: cd front && npm install && npm run build
     staticPublishPath: front/dist
     envVars:
