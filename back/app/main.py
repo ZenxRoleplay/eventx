@@ -10,17 +10,7 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="EventX API")
 
 # Allow the hosted frontend + localhost; if you change the frontend URL, add it here.
-ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:4173",
-    "https://front-w461.onrender.com",
-    "https://eventx-front.onrender.com",
-    # Vercel deployments
-    "https://eventx.vercel.app",
-    "https://eventx-git-main-zenxroleplay.vercel.app",
-    "https://eventx-git-main-sahilkhandocuments-dot.vercel.app",
-]
+ALLOWED_ORIGINS = ["*"]  # TODO: lock down to specific origins before prod
 
 app.add_middleware(
     CORSMiddleware,
